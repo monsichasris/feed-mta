@@ -39,6 +39,15 @@ function populateDropdown(stations) {
         }
         dropdown.add(option);
     }
+    updateStationName();
+}
+
+function updateStationName() {
+    const stationNameElement = document.getElementById('station-name');
+    const selectedStation = stationsData[STATION_STOP_ID];
+    if (selectedStation) {
+        stationNameElement.innerText = selectedStation.name;
+    }
 }
 
 
@@ -87,13 +96,15 @@ function extractStationArrivals(message, stopId) {
                                 direction: update.stopId.slice(-1),
                                 arrival: arrivalTime
                             });
-                        
-                    }
+                        } else {
+                            console.warn(`Skipping update for stopId ${update.stopId} due to missing or invalid arrival time.`);
+                        }
+                    
                 });
             }
         });
     }
-    // console.log(arrivals);
+    console.log(arrivals);
     
     // Sort by soonest arrival
     return arrivals.sort((a, b) => a.arrival.toLocaleTimeString() - b.arrival.toLocaleTimeString());
@@ -101,6 +112,9 @@ function extractStationArrivals(message, stopId) {
 
 
 function updateTrain(id, route, arrivalTime, direction, arrivals) {
+
+    const svg = d3.select('svg');
+    const routes = [...new Set(arrivals.map(train => train.route))];
 
     const activeTrainIds = new Set(arrivals.map(train => train.id));
 
@@ -195,6 +209,7 @@ window.onload = async function () {
 
     document.getElementById('station-select').addEventListener('change', function() {
         STATION_STOP_ID = this.value;
+        updateStationName();
         fetchGTFS();
     });
 }
