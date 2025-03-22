@@ -71,7 +71,7 @@ async function fetchGTFS() {
 
         // Update train positions
         combinedArrivals.forEach(train => {
-            updateTrain(train.id, train.route, train.arrival.getTime() / 1000, combinedArrivals);  
+            updateTrain(train.id, train.route, train.arrival.getTime() / 1000, train.direction, combinedArrivals);  
         });
 
         return combinedArrivals;
@@ -94,14 +94,15 @@ function extractStationArrivals(message, stopId) {
                 entity.tripUpdate.stopTimeUpdate.forEach(update => {
                     if (selectedStationStops.some(stop => update.stopId.includes(stop)) && new Date().toLocaleTimeString() < new Date(update.arrival.time * 1000).toLocaleTimeString()) {
                         let arrivalTime = new Date(update.arrival.time * 1000); // Convert Unix timestamp
-                        if (selectedStationStops.some(stop => update.stopId === stop + DIRECTION)) { // Check direction
+                        // if (selectedStationStops.some(stop => update.stopId === stop + DIRECTION)) { // Check direction
                             arrivals.push({
                                 id: entity.tripUpdate.trip.tripId.replace(/\./g, "-"),
                                 route: entity.tripUpdate.trip.routeId || "Unknown",
                                 stop: update.stopId,
+                                direction: update.stopId.slice(-1),
                                 arrival: arrivalTime
                             });
-                        }
+                        
                     }
                 });
             }
@@ -115,25 +116,10 @@ function extractStationArrivals(message, stopId) {
 
 let trainPositions = {};  // Store the positions of the trains
 
-function updateTrain(id, route, arrivalTime, arrivals) {
-
-    // Remove old lines
-    d3.selectAll('line').remove();
+function updateTrain(id, route, arrivalTime, direction, arrivals) {
 
     const svg = d3.select('svg');
     const routes = [...new Set(arrivals.map(train => train.route))];
-
-    routes.forEach((route, index) => {
-        svg.append('line')
-            .attr('id', `route-${route}`)
-            .attr('x1', 0)
-            .attr('y1', index * 80)
-            .attr('x2', window.innerWidth)
-            .attr('y2', index * 80)
-            .attr('stroke', '#000')
-            .attr('stroke-width', 2)
-            .lower();
-    });
 
     const activeTrainIds = new Set(arrivals.map(train => train.id));
 
@@ -146,39 +132,48 @@ function updateTrain(id, route, arrivalTime, arrivals) {
         }
     });
     
+    const currentTime = new Date().getTime() / 1000;
+    const timeRemaining = arrivalTime - currentTime;  // Calculate time remaining for train arrival
+
+    const maxTravelTime = 300; // 3 minutes max travel time
+    const maxHeight = window.innerHeight;
+    const maxWidth = window.innerWidth;
+
+    // Create a new SVG element
     let trainSvg = d3.select(`#train-${id}`);
     if (trainSvg.empty()) {
         // Load the SVG file and append it to the main SVG element
-        d3.xml(`./assets/svg-routes/${route}.svg`).then(data => {
+        const svgFile = `./assets/svg-routes/${route}.svg`;
+        d3.xml(svgFile).then(data => {
             const importedNode = document.importNode(data.documentElement, true);
-            trainSvg = d3.select('svg').append('g')
+            const trainGroup = d3.select('svg').append('g')
                 .attr('id', `train-${id}`)
-                .attr('class', 'train-svg')
-                .attr('transform', `translate(0, ${80 + routes.indexOf(route) * 80})`)
-                .node().appendChild(importedNode);
+                .attr('class', 'train-svg');
+
+            
+            for (let i = 0; i < maxWidth / 80; i++) {
+                trainGroup.append('g')
+                    .attr('transform', `translate(${i * 80}, 0)`)
+                    .node().appendChild(importedNode.cloneNode(true));
+            }
 
             trainPositions[id] = 0;
         });
     }
 
-    const currentTime = new Date().getTime() / 1000;
-    const timeRemaining = arrivalTime - currentTime;  // Calculate time remaining for train arrival
-
-    const maxTravelTime = 300; // 3 minutes max travel time
-    const maxWidth = window.innerWidth;
-
     // D3 scale: Map time remaining to position along the route
-    const xScale = d3.scaleLinear()
+    const yScale = d3.scaleLinear()
         .domain([0, maxTravelTime])  // Time range (0 = arrival, maxTravelTime = farthest away)
-        .range([0,maxWidth]);
+        .range(direction === "S" ? [maxHeight, 0]: [0, maxHeight]);
 
     // Compute new position
-    const position = xScale(Math.max(0, timeRemaining));
+    const position = yScale(Math.max(0, timeRemaining));
     
-    d3.select(`#train-${id}`).attr('transform', `translate(${position}, ${routes.indexOf(route) * 50})`).attr('visibility', 'visible'); // Update the position of the SVG
+    // d3.select(`#train-${id}`).attr('transform', `translate(${position}, ${routes.indexOf(route) * 50})`).attr('visibility', 'visible'); // Update the position of the SVG
+    d3.select(`#train-${id}`).attr('transform', `translate(${routes.indexOf(route)}, ${position})`).attr('visibility', 'visible'); // Update the position of the SVG
 
     // console.log(timeRemaining)
-    // Play sound if the position is 0
+
     if (timeRemaining < 1 && trainPositions[id] > 1) {
         playSound();
     }
@@ -207,7 +202,7 @@ setInterval(async () => {
     if (message) {  // Ensure data is valid
         const arrivals = extractStationArrivals(message, STATION_STOP_ID + DIRECTION);
         arrivals.forEach(train => {
-            updateTrain(train.id, train.route, train.arrival.getTime() / 1000, arrivals);  // Convert arrival time to Unix timestamp (seconds)
+            updateTrain(train.id, train.route, train.arrival.getTime() / 1000, train.direction, arrivals);  // Convert arrival time to Unix timestamp (seconds)
         });
     }
 }, 1000);   // Update every second
@@ -224,11 +219,11 @@ window.onload = async function () {
         fetchGTFS(); // Fetch data for the selected station
     });
 
-    document.querySelectorAll('input[name="direction"]').forEach((elem) => {
-        elem.addEventListener('change', function() {
-            DIRECTION = this.value;
-            console.log(`Selected Direction: ${STATION_STOP_ID + DIRECTION}`); 
-            fetchGTFS();
-        });
-    });
+    // document.querySelectorAll('input[name="direction"]').forEach((elem) => {
+    //     elem.addEventListener('change', function() {
+    //         DIRECTION = this.value;
+    //         console.log(`Selected Direction: ${STATION_STOP_ID + DIRECTION}`); 
+    //         fetchGTFS();
+    //     });
+    // });
 }
