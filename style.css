@@ -30,8 +30,7 @@ h1 {
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 1;
-    min-width: 50%;
-    max-width: 90%;
+    min-width: 60%;
 }
 
 #station-name-container, #station-select-container {

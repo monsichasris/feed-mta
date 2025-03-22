@@ -12,13 +12,14 @@ const MTA_GTFS_URLS = [
 ];
 
 let stationsData = {}; // Store stations data
+let trainPositions = {};  // Store the positions of the trains
 
 // Load stations from JSON file and populate dropdown menu
 async function loadStations() {
     try {
         const response = await fetch('./assets/stations.json');
         const stations = await response.json();
-        stationsData = stations; // Store stations data
+        stationsData = stations;
         populateDropdown(stations);
     } catch (error) {
         console.error("Error loading stations:", error);
@@ -38,22 +39,11 @@ function populateDropdown(stations) {
         }
         dropdown.add(option);
     }
-
-    // Add event listener to update station name
-    dropdown.addEventListener('change', function() {
-        const selectedStation = stations[this.value];
-        document.getElementById('station-name').innerText = selectedStation.name;
-        STATION_STOP_ID = this.value;
-        fetchGTFS(); // Fetch data for the selected station
-    });
 }
 
 
 async function fetchGTFS() {
     try {
-        console.log(`Fetching GTFS data for station: ${STATION_STOP_ID}, direction: ${DIRECTION}`);
-        
-        // Fetch GTFS-RT feed from all URLs
         const responses = await Promise.all(MTA_GTFS_URLS.map(url => fetch(url)));
         const dataArrays = await Promise.all(responses.map(response => response.arrayBuffer()));
       
@@ -79,22 +69,17 @@ async function fetchGTFS() {
     } catch (error) {
         console.error("Error fetching GTFS data:", error);
     }    
-
-    // document.getElementById("status").innerText = `Last updated: ${new Date().toLocaleTimeString()}`;
 }
 
 function extractStationArrivals(message, stopId) {
     let arrivals = [];
     const selectedStationStops = Object.keys(stationsData[STATION_STOP_ID].stops);
-    console.log("Selected stations " + selectedStationStops);
-    // console.log(message.entity);
     if (message.entity) {
         message.entity.forEach(entity => {
             if (entity.tripUpdate) {
                 entity.tripUpdate.stopTimeUpdate.forEach(update => {
                     if (selectedStationStops.some(stop => update.stopId.includes(stop)) && new Date().toLocaleTimeString() < new Date(update.arrival.time * 1000).toLocaleTimeString()) {
                         let arrivalTime = new Date(update.arrival.time * 1000); // Convert Unix timestamp
-                        // if (selectedStationStops.some(stop => update.stopId === stop + DIRECTION)) { // Check direction
                             arrivals.push({
                                 id: entity.tripUpdate.trip.tripId.replace(/\./g, "-"),
                                 route: entity.tripUpdate.trip.routeId || "Unknown",
@@ -108,41 +93,36 @@ function extractStationArrivals(message, stopId) {
             }
         });
     }
-    console.log(arrivals);
+    // console.log(arrivals);
     
     // Sort by soonest arrival
     return arrivals.sort((a, b) => a.arrival.toLocaleTimeString() - b.arrival.toLocaleTimeString());
 }
 
-let trainPositions = {};  // Store the positions of the trains
 
 function updateTrain(id, route, arrivalTime, direction, arrivals) {
 
-    const svg = d3.select('svg');
-    const routes = [...new Set(arrivals.map(train => train.route))];
-
     const activeTrainIds = new Set(arrivals.map(train => train.id));
+
+    const currentTime = new Date().getTime() / 1000;
+    const timeRemaining = arrivalTime - currentTime;  // Calculate time remaining for train arrival
+
+    const maxTravelTime = 300; // adjust max travel time
+    const maxHeight = window.innerHeight;
+    const maxWidth = window.innerWidth;
 
     // Hide or remove SVGs and text not in the current arrivals
     d3.selectAll('g.train-svg').each(function() {
         const trainSvg = d3.select(this);
         const id = trainSvg.attr('id').replace('train-', '');
         if (!activeTrainIds.has(id)) {
-            trainSvg.remove();
+        trainSvg.remove();
         }
     });
-    
-    const currentTime = new Date().getTime() / 1000;
-    const timeRemaining = arrivalTime - currentTime;  // Calculate time remaining for train arrival
-
-    const maxTravelTime = 300; // 3 minutes max travel time
-    const maxHeight = window.innerHeight;
-    const maxWidth = window.innerWidth;
 
     // Create a new SVG element
     let trainSvg = d3.select(`#train-${id}`);
     if (trainSvg.empty()) {
-        // Load the SVG file and append it to the main SVG element
         const svgFile = `./assets/svg-routes/${route}.svg`;
         d3.xml(svgFile).then(data => {
             const importedNode = document.importNode(data.documentElement, true);
@@ -159,7 +139,6 @@ function updateTrain(id, route, arrivalTime, direction, arrivals) {
                         .attr('transform', transform)
                         .node().appendChild(importedNode.cloneNode(true));
                 }
-
             trainPositions[id] = 0;
         });
     }
@@ -169,21 +148,18 @@ function updateTrain(id, route, arrivalTime, direction, arrivals) {
         .domain([0, maxTravelTime])  // Time range (0 = arrival, maxTravelTime = farthest away)
         .range(direction === "S" ? [maxHeight, 0]: [0, maxHeight]);
 
-    // Compute new position
-    let position = yScale(Math.max(0, timeRemaining));
 
-    // Move the position by 8 pixels and round the decimal
-    position = Math.round(position / 10) * 10;
+    let position = yScale(Math.max(0, timeRemaining));
+    position = Math.round(position / 10) * 10; // Move the position by 8px+2px gap and round the decimal
 
     d3.select(`#train-${id}`).attr('transform', `translate(0, ${position})`).attr('visibility', 'visible'); // Update the position of the SVG
 
-    if (timeRemaining < 1 && trainPositions[id] > 1) {
+    // Play sound if the position is at the top or bottom
+    if ((direction === "S" && position === maxHeight) || (direction === "N" && position === 0)) {
         playSound();
     }
 
     trainPositions[id] = position;
-    
-    // console.log(`Route: ${route}, Id: ${id}, Time Remaining: ${timeRemaining.toFixed(2)}, Position: ${position.toFixed(2)}`);
 }
 
 
@@ -201,11 +177,11 @@ function updateCurrentTime() {
 
 // Start the real-time updates using the feed data
 setInterval(async () => {
-    const message = await fetchGTFS();  // Fetch GTFS data
-    if (message) {  // Ensure data is valid
+    const message = await fetchGTFS();
+    if (message) {
         const arrivals = extractStationArrivals(message, STATION_STOP_ID + DIRECTION);
         arrivals.forEach(train => {
-            updateTrain(train.id, train.route, train.arrival.getTime() / 1000, train.direction, arrivals);  // Convert arrival time to Unix timestamp (seconds)
+            updateTrain(train.id, train.route, train.arrival.getTime() / 1000, train.direction, arrivals);
         });
     }
 }, 1000);   // Update every second
@@ -219,14 +195,6 @@ window.onload = async function () {
 
     document.getElementById('station-select').addEventListener('change', function() {
         STATION_STOP_ID = this.value;
-        fetchGTFS(); // Fetch data for the selected station
+        fetchGTFS();
     });
-
-    // document.querySelectorAll('input[name="direction"]').forEach((elem) => {
-    //     elem.addEventListener('change', function() {
-    //         DIRECTION = this.value;
-    //         console.log(`Selected Direction: ${STATION_STOP_ID + DIRECTION}`); 
-    //         fetchGTFS();
-    //     });
-    // });
 }
