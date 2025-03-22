@@ -24,14 +24,24 @@ h1 {
     display: flex;
     flex-direction: column;
     gap: -8px;
-    margin: 57px;
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 1;
+    min-width: 50%;
+    max-width: 90%;
 }
 
 #station-name-container, #station-select-container {
     border: 8px dashed #000;
     background: #FFF;
     padding: 8px 24px;
+}
+
+#station-name {
+    text-align: center;
 }
 
 #station-select-container {

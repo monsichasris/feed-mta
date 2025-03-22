@@ -148,14 +148,17 @@ function updateTrain(id, route, arrivalTime, direction, arrivals) {
             const importedNode = document.importNode(data.documentElement, true);
             const trainGroup = d3.select('svg').append('g')
                 .attr('id', `train-${id}`)
-                .attr('class', 'train-svg');
+                .attr('class', 'train-svg')
+                .attr('margin', 0);
 
-            
-            for (let i = 0; i < maxWidth / 80; i++) {
-                trainGroup.append('g')
-                    .attr('transform', `translate(${i * 80}, 0)`)
-                    .node().appendChild(importedNode.cloneNode(true));
-            }
+                for (let i = 0; i < maxWidth / 80; i++) {
+                    const transform = i % 2 === 0 
+                        ? `translate(${i * 80}, 0)` 
+                        : `translate(${78+i * 80}, 0) scale(-1, 1)`;
+                    trainGroup.append('g')
+                        .attr('transform', transform)
+                        .node().appendChild(importedNode.cloneNode(true));
+                }
 
             trainPositions[id] = 0;
         });
@@ -167,12 +170,12 @@ function updateTrain(id, route, arrivalTime, direction, arrivals) {
         .range(direction === "S" ? [maxHeight, 0]: [0, maxHeight]);
 
     // Compute new position
-    const position = yScale(Math.max(0, timeRemaining));
-    
-    // d3.select(`#train-${id}`).attr('transform', `translate(${position}, ${routes.indexOf(route) * 50})`).attr('visibility', 'visible'); // Update the position of the SVG
-    d3.select(`#train-${id}`).attr('transform', `translate(${routes.indexOf(route)}, ${position})`).attr('visibility', 'visible'); // Update the position of the SVG
+    let position = yScale(Math.max(0, timeRemaining));
 
-    // console.log(timeRemaining)
+    // Move the position by 8 pixels and round the decimal
+    position = Math.round(position / 10) * 10;
+
+    d3.select(`#train-${id}`).attr('transform', `translate(0, ${position})`).attr('visibility', 'visible'); // Update the position of the SVG
 
     if (timeRemaining < 1 && trainPositions[id] > 1) {
         playSound();
