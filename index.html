@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FEED</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/protobufjs/6.11.3/protobuf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="main.js"></script>
+    <link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+    <div style="width: 100vw; height: 16vh; color: white; background-color: #000000; padding-top: 24px; ">
+        <div style="background-color: white; width: 100%; height: 4px;"></div>
+        <div style="display: flex; flex-direction: row; justify-content: space-between;">
+            <div style="padding: 16px;">
+                <h1 id="station-name">14 St-Union Sq</h1>
+                <img src="./assets/arrow.svg" alt="Arrow Icon"/>
+            </div>
+
+            <div style="padding: 24px;">
+                <div>
+                    <label for="station-select">Select Station:</label>
+                    <select id="station-select" style="width: 160px;"></select>
+                </div>
+                <div>
+                    <label>Direction:</label>
+                    <input type="radio" id="uptown" name="direction" value="N">
+                    <label for="uptown">Uptown</label>
+                    <input type="radio" id="downtown" name="direction" value="S" checked>
+                    <label for="downtown">Downtown</label>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <p id="current-time"></p>
+    <svg width="100vw" height="800"></svg>
+    <table>
+        <thead>
+            <tr>
+                <th>Route</th>
+                <th>Arrival Time</th>
+            </tr>
+        </thead>
+        <tbody id="train-arrivals">
+            <tr><td colspan="2">Loading...</td></tr>
+        </tbody>
+    </table>
+
+    
+    
+</body>
+</html>
