@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FEED</title>
+    <title>MTA - Moving Tiles Art NYC Subway</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/protobufjs/6.11.3/protobuf.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://use.typekit.net/wpg1rup.css">
-
 </head>
 <body>
     <div id="station-sign">
@@ -18,7 +17,46 @@
         </div>
         <div id="station-select-container">
             <select id="station-select"></select>
-            <p id="current-time"></p>
+            <div id="station-info">
+                <div id="current-time"></div>
+                <button id="about">?</button></div>
+            </div>
+        </div>
+    </div>
+    <div id="about-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="about-header">
+                <img src="./assets/mta-logo.png" alt="MTA logo" height="120px">
+                <h2>Moving Tiles Art<br>NYC Subway</h2>
+            </div>
+            
+            <div>
+                <div class="row-between">
+                    <div>
+                        <p style="margin-bottom: 40px ;">This project, part of Data as Material assignment at Parsons School of Design, transforms <a href="https://api.mta.info/#/subwayRealTimeFeeds" target="_blank">real-time MTA</a> (Metropolitan Transportation Authority) train arrival data into dynamic pixel tile patterns inspired by subway mosaic art. Each station generates a unique pattern based on the trains arriving at that moment—select a station to see its evolving design.</p>
+                        <h3>Direction</h3>
+                        <div class="directions">
+                            <img src="./assets/arrow-up.svg" alt="Up arrow" height="40px">
+                            <p><b>Uptown and Bronx-bound trains.</b><br>
+                                Moving to the TOP of the screen</p>
+                        </div>
+                        <div class="directions">
+                            <img src="./assets/arrow-down.svg" alt="Down arrow" height="40px">
+                            <p><b>Downtown and Brooklyn-bound trains.</b><br>
+                                Moving to the BOTTOM of the screen</p>
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Route Tiles</h3>
+                        <img src="./assets/route-tiles.png" alt="Route tiles" height="400px">
+                    </div>
+                </div>
+                <div class="row-between">
+                    <a href="https://monsicha.info/" target="_blank">monsicha.info</a>
+                    <p>2025 © Monsicha Srisuantang</p>
+                </div>
+            </div>
         </div>
     </div>
 

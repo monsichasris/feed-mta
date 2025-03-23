@@ -67,6 +67,7 @@ async function fetchGTFS() {
             const arrivals = extractStationArrivals(message, STATION_STOP_ID + DIRECTION);
             combinedArrivals = combinedArrivals.concat(arrivals);
         });
+        console.log("Combined arrivals:", combinedArrivals);
 
         // Update train positions
         combinedArrivals.forEach(train => {
@@ -84,27 +85,28 @@ function extractStationArrivals(message, stopId) {
     let arrivals = [];
     const selectedStationStops = Object.keys(stationsData[STATION_STOP_ID].stops);
     if (message.entity) {
+        // console.log(message.entity);
         message.entity.forEach(entity => {
             if (entity.tripUpdate) {
                 entity.tripUpdate.stopTimeUpdate.forEach(update => {
-                    if (selectedStationStops.some(stop => update.stopId.includes(stop)) && new Date().toLocaleTimeString() < new Date(update.arrival.time * 1000).toLocaleTimeString()) {
-                        let arrivalTime = new Date(update.arrival.time * 1000); // Convert Unix timestamp
+                    // console.log(`Processing update for stopId ${update.stopId}:`, update);
+                    if (selectedStationStops.some(stop => update.stopId.includes(stop)) && update.arrival && update.arrival.time && new Date().toLocaleTimeString() < new Date(update.arrival.time * 1000).toLocaleTimeString()) {
                             arrivals.push({
                                 id: entity.tripUpdate.trip.tripId.replace(/\./g, "-"),
                                 route: entity.tripUpdate.trip.routeId || "Unknown",
                                 stop: update.stopId,
                                 direction: update.stopId.slice(-1),
-                                arrival: arrivalTime
+                                arrival: new Date(update.arrival.time * 1000)
                             });
-                        } else {
-                            console.warn(`Skipping update for stopId ${update.stopId} due to missing or invalid arrival time.`);
-                        }
-                    
+                    }
                 });
             }
         });
+    } else {
+        console.warn(`No entities found in GTFS message for stopId ${stopId}.`);
     }
-    console.log(arrivals);
+    console.log(`Arrivals for stopId ${stopId}:`, arrivals);
+    // console.log(arrivals);
     
     // Sort by soonest arrival
     return arrivals.sort((a, b) => a.arrival.toLocaleTimeString() - b.arrival.toLocaleTimeString());
@@ -160,7 +162,7 @@ function updateTrain(id, route, arrivalTime, direction, arrivals) {
     // D3 scale: Map time remaining to position along the route
     const yScale = d3.scaleLinear()
         .domain([0, maxTravelTime])  // Time range (0 = arrival, maxTravelTime = farthest away)
-        .range(direction === "S" ? [maxHeight, 0]: [0, maxHeight]);
+        .range(direction === "S" ? [0, maxHeight] : [maxHeight, 0] );
 
 
     let position = yScale(Math.max(0, timeRemaining));
@@ -174,13 +176,14 @@ function updateTrain(id, route, arrivalTime, direction, arrivals) {
     }
 
     trainPositions[id] = position;
+    console.log(`Train ${id} is at position ${position} direction ${direction}`);
 }
 
 
-function playSound() {
-    var audio = new Audio('./assets/pew.mp3');
-    audio.play();
-}
+// function playSound() {
+//     var audio = new Audio('./assets/windchime.mp3');
+//     audio.play();
+// }
 
 function updateCurrentTime() {
     const currentTimeElement = document.getElementById('current-time');
@@ -204,7 +207,7 @@ setInterval(async () => {
 window.onload = async function () {
     await loadStations(); 
     fetchGTFS(); // Initial fetch
-    setInterval(fetchGTFS, 10000); // Refresh every 10 sec
+    setInterval(fetchGTFS, 1000); // Refresh every 10 sec
     setInterval(updateCurrentTime, 1000);
 
     document.getElementById('station-select').addEventListener('change', function() {
